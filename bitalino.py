@@ -26,6 +26,10 @@ import time
 import select
 import sys
 
+sys.path.append("../qrs_detector/python")
+import detection
+
+
 def find():
     """
     :returns: list of (tuples) with name and MAC address of each device found
@@ -482,6 +486,7 @@ class BITalino(object):
                         dataAcquired[sample, 10] = decodedData[-8] & 0x3F 
                 else:
                     raise Exception(ExceptionCode.CONTACTING_DEVICE)
+                    #a = 1
             return dataAcquired   
         else:
             raise Exception(ExceptionCode.DEVICE_NOT_IN_ACQUISITION)
@@ -542,40 +547,60 @@ class BITalino(object):
         return data
             
 if __name__ == '__main__':
-    macAddress = "00:00:00:00:00:00"
+    macAddress = "20:16:12:22:50:10"
 
     running_time = 5
-    
+
     batteryThreshold = 30
     acqChannels = [0, 1, 2, 3, 4, 5]
-    samplingRate = 1000
+    samplingRate = 50
     nSamples = 10
-    digitalOutput = [1,1]
-    
+    nBlocks=1000
+    digitalOutput = [0,0]
+
+    block = numpy.zeros(nSamples * nBlocks)
+
     # Connect to BITalino
     device = BITalino(macAddress)
 
     # Set battery threshold
     device.battery(batteryThreshold)
-    
+
     # Read BITalino version
     print(device.version())
-        
+
     # Start Acquisition
     device.start(samplingRate, acqChannels)
 
+    file_ = open('result.dat','w')
+    file_1 = open('block.dat','w')
     start = time.time()
     end = time.time()
+    block_i = 0
+
     while (end - start) < running_time:
-        # Read samples
-        print(device.read(nSamples))
+
+        bit_out = device.read(nSamples)
+        print(bit_out)
         end = time.time()
+        for i in range(0,nSamples):
+            file_.write(str(end - start) + "\t" + str(bit_out[i,5]) + "\t" + str(bit_out[i,6]) + "\n")
+
+        block[(nSamples * block_i) : nSamples + (nSamples * block_i)] = bit_out[0:nSamples,6]
+        block_i += 1
+        if (block_i % nBlocks == 0):
+            block_i = 0
+
+    numpy.savetxt('block.dat', block, fmt='%5lf')
+
+    file_.close()
+    file_1.close()
 
     # Turn BITalino led on
     device.trigger(digitalOutput)
-    
+
     # Stop acquisition
     device.stop()
-    
+
     # Close connection
     device.close()
