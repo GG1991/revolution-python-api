@@ -25,6 +25,7 @@ import struct
 import time
 import select
 import sys
+from matplotlib import pyplot as pp
 
 sys.path.append("../qrs_detector/python")
 import detection
@@ -486,7 +487,6 @@ class BITalino(object):
                         dataAcquired[sample, 10] = decodedData[-8] & 0x3F 
                 else:
                     raise Exception(ExceptionCode.CONTACTING_DEVICE)
-                    #a = 1
             return dataAcquired   
         else:
             raise Exception(ExceptionCode.DEVICE_NOT_IN_ACQUISITION)
@@ -553,9 +553,9 @@ if __name__ == '__main__':
 
     batteryThreshold = 30
     acqChannels = [0, 1, 2, 3, 4, 5]
-    samplingRate = 50
+    samplingRate = 100 # with 100 works better than 1000
     nSamples = 10
-    nBlocks=1000
+    nBlocks=200
     digitalOutput = [0,0]
 
     block = numpy.zeros(nSamples * nBlocks)
@@ -573,7 +573,6 @@ if __name__ == '__main__':
     device.start(samplingRate, acqChannels)
 
     file_ = open('result.dat','w')
-    file_1 = open('block.dat','w')
     start = time.time()
     end = time.time()
     block_i = 0
@@ -591,10 +590,15 @@ if __name__ == '__main__':
         if (block_i % nBlocks == 0):
             block_i = 0
 
-    numpy.savetxt('block.dat', block, fmt='%5lf')
+        result = detection.detect(block, 200)
+
+    numpy.savetxt('block.dat', block)
+    pp.plot(block)
+    for peak in result:
+        pp.axvline(peak, color="r")
+    pp.show()
 
     file_.close()
-    file_1.close()
 
     # Turn BITalino led on
     device.trigger(digitalOutput)
